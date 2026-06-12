@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Outer Glow Circle -->
+    <path
+        android:pathData="M60,60m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="60"
+                android:centerY="60"
+                android:gradientRadius="50">
+                <item android:offset="0" android:color="#4038BDF8" />
+                <item android:offset="1" android:color="#0038BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Main Icon: Stylized 'P' / Wallet Hybrid -->
+    <path
+        android:pathData="M45,35 H75 C83.28,35 90,41.72 90,50 C90,58.28 83.28,65 75,65 H55 V85 H45 V35 Z"
+        android:fillColor="#38BDF8" />
+
+    <!-- Inner Detail -->
+    <path
+        android:pathData="M55,45 H75 C77.76,45 80,47.24 80,50 C80,52.76 77.76,55 75,55 H55 V45 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.8" />
+
+    <!-- Accent Line -->
+    <path
+        android:pathData="M30,50 L40,50"
+        android:strokeColor="#4ADE80"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+
+</vector>

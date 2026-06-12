@@ -1,0 +1,33 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Main App Theme -->
+    <style name="Theme.PayBuddy" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <item name="colorPrimary">@color/neon_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/background_dark</item>
+        <item name="android:windowBackground">@color/background_dark</item>
+    </style>
+
+    <style name="Theme.PayBuddy.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/background_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.PayBuddy</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+    
+    <!-- Custom Styles for Glassmorphism -->
+    <style name="GlassCard" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">@color/glass_bg</item>
+        <item name="cardElevation">0dp</item>
+        <item name="cardCornerRadius">24dp</item>
+        <item name="strokeColor">@color/glass_edge</item>
+        <item name="strokeWidth">1.2dp</item>
+        <item name="android:layout_margin">4dp</item>
+    </style>
+
+    <style name="GlassButton" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/glass_card_bg</item>
+        <item name="backgroundTint">@null</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+</resources>
