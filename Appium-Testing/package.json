@@ -1,0 +1,30 @@
+{
+  "name": "paybuddy-automation",
+  "version": "1.0.0",
+  "description": "Appium Automation Framework for PayBuddy Financial System",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "wdio run ./wdio.conf.js",
+    "test:full": "wdio run ./wdio.conf.js",
+    "test:nav": "wdio run ./wdio.conf.js --spec ./tests/SystemNavigation.test.js",
+    "test:all": "wdio run ./wdio.conf.js --spec ./tests/*.test.js",
+    "report": "allure generate ./reports/allure-results --clean && allure open",
+    "clean": "powershell -Command \"Remove-Item -Path reports, screenshots, logs, excel-reports -Recurse -ErrorAction SilentlyContinue\""
+  },
+  "dependencies": {
+    "@wdio/allure-reporter": "^8.0.0",
+    "@wdio/appium-service": "^9.28.0",
+    "@wdio/cli": "^9.28.0",
+    "@wdio/local-runner": "^9.28.0",
+    "@wdio/mocha-framework": "^9.28.0",
+    "@wdio/spec-reporter": "^9.28.0",
+    "appium": "^2.0.0",
+    "allure-commandline": "^2.21.0",
+    "appium-uiautomator2-driver": "^2.0.0",
+    "chai": "^4.3.7",
+    "exceljs": "^4.3.0",
+    "moment": "^2.29.4",
+    "winston": "^3.8.2"
+  }
+}

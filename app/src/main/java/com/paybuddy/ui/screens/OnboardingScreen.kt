@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.paybuddy.viewmodel.VendorViewModel
@@ -61,21 +62,21 @@ fun OnboardingScreen(
                 value = vendorName,
                 onValueChange = { vendorName = it },
                 label = { Text("Vendor Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("vendor_name_input")
             )
 
             OutlinedTextField(
                 value = shopName,
                 onValueChange = { shopName = it },
                 label = { Text("Shop Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("shop_name_input")
             )
 
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
                 label = { Text("Phone") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("phone_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
             )
 
@@ -83,7 +84,7 @@ fun OnboardingScreen(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("email_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
 
@@ -91,7 +92,7 @@ fun OnboardingScreen(
                 value = upiId,
                 onValueChange = { upiId = it },
                 label = { Text("UPI ID (Optional)") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("upi_id_input")
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -114,7 +115,7 @@ fun OnboardingScreen(
                         upiId = upiId
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("save_button"),
                 enabled = vendorName.isNotEmpty() && shopName.isNotEmpty() && state !is VendorViewModel.OnboardingState.Loading
             ) {
                 if (state is VendorViewModel.OnboardingState.Loading) {

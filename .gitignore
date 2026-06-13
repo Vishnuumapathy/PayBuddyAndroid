@@ -26,3 +26,11 @@ google-services.json
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Appium Testing
+Appium-Testing/node_modules/
+Appium-Testing/reports/
+Appium-Testing/allure-report/
+Appium-Testing/excel-reports/
+Appium-Testing/screenshots/
+*.bak

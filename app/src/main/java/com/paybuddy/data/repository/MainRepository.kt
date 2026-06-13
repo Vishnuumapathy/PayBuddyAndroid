@@ -391,8 +391,26 @@ class MainRepository(
                     "paidAmount", newPaidAmount
                 )
 
-                // E. Create ledger entry
+                // E. Create ledger entry for Sale
                 transaction.set(db.collection("ledger").document(ledgerId), ledgerEntry)
+
+                // F. Create ledger entry for Downpayment if exists
+                if (newSale.amountPaid > 0.001) {
+                    val payLedgerId = "LEDGER_PAY_DP_${System.currentTimeMillis()}"
+                    val payLedgerEntry = LedgerEntry(
+                        entryId = payLedgerId,
+                        vendorId = newSale.vendorId,
+                        customerId = newSale.customerId,
+                        customerName = newSale.customerName,
+                        itemName = newSale.itemName,
+                        saleId = newSale.saleId,
+                        type = "payment",
+                        amount = newSale.amountPaid,
+                        balanceAfter = balanceAfter,
+                        createdAt = newSale.createdAt + 1 // Ensure it's slightly after the sale
+                    )
+                    transaction.set(db.collection("ledger").document(payLedgerId), payLedgerEntry)
+                }
 
                 null // Return from transaction
             }.await()
