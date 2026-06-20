@@ -31,6 +31,7 @@ Thumbs.db
 Appium-Testing/node_modules/
 Appium-Testing/reports/
 Appium-Testing/allure-report/
-Appium-Testing/excel-reports/
+Appium-Testing/excel-reports/*
+!Appium-Testing/excel-reports/.gitkeep
 Appium-Testing/screenshots/
 *.bak
