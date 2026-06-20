@@ -36,7 +36,9 @@ jobs:
             $sdkPath = $env:ANDROID_HOME.Replace("\", "/")
           }
           Write-Host "Setting Android SDK path in local.properties to: $sdkPath"
-          "sdk.dir=$sdkPath" | Out-File -FilePath "local.properties" -Encoding utf8
+          [System.IO.File]::WriteAllText("local.properties", "sdk.dir=$sdkPath")
+          Write-Host "Verifying local.properties content:"
+          Get-Content local.properties
 
       - name: Build Android Debug APK
         shell: powershell
