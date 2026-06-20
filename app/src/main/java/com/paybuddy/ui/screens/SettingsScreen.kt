@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,7 +81,8 @@ fun SettingsScreen(
                 Button(
                     onClick = { viewModel.confirmLogout() },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.2f)),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.semantics { contentDescription = "confirm_logout_button" }
                 ) {
                     Text("Logout", color = NeonRed, fontWeight = FontWeight.Bold)
                 }
@@ -188,6 +191,7 @@ fun SettingsScreen(
                         titleColor = if (isLoggingOut) TextSecondary else NeonRed,
                         iconColor = if (isLoggingOut) TextSecondary else NeonRed,
                         isBold = true,
+                        modifier = Modifier.semantics { contentDescription = "logout_item" },
                         onClick = { viewModel.onLogoutClick() }
                     )
                 }
@@ -228,10 +232,11 @@ private fun SettingsItem(
     titleColor: Color = Color.White,
     iconColor: Color = NeonBlue,
     isBold: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(20.dp),

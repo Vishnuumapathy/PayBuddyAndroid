@@ -2,6 +2,7 @@ package com.paybuddy.ui.settings
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -70,18 +71,32 @@ class SettingsFragment : Fragment() {
     }
 
     private fun handleExit() {
+        Log.d("SettingsFragment", "handleExit: Starting logout process")
         val sessionManager = SessionManager(requireContext())
         
-        // Start target activity first
-        val intent = Intent(requireContext(), LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
+        // 1. Immediate sign out from Firebase
+        FirebaseAuth.getInstance().signOut()
 
-        // Then clean up
-        lifecycleScope.launch {
-            FirebaseAuth.getInstance().signOut()
-            sessionManager.clearSession()
-            requireActivity().finish()
+        // 2. Clear session and navigate
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                Log.d("SettingsFragment", "handleExit: Clearing session...")
+                sessionManager.clearSession()
+                Log.d("SettingsFragment", "handleExit: Session cleared. Navigating to Login.")
+                
+                val intent = Intent(requireContext(), LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                
+                requireActivity().finish()
+            } catch (e: Exception) {
+                Log.e("SettingsFragment", "Error during logout", e)
+                // Fallback: still try to navigate to Login
+                val intent = Intent(requireContext(), LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                requireActivity().finish()
+            }
         }
     }
 

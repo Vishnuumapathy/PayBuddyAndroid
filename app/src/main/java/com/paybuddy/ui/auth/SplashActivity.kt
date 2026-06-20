@@ -3,8 +3,6 @@ package com.paybuddy.ui.auth
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -13,47 +11,40 @@ import com.google.firebase.auth.FirebaseAuth
 import com.paybuddy.databinding.ActivitySplashBinding
 import com.paybuddy.ui.dashboard.DashboardActivity
 import com.paybuddy.utils.SessionManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @SuppressLint("CustomSplashScreen")
 class SplashActivity : AppCompatActivity() {
 
     private var _binding: ActivitySplashBinding? = null
     private val binding get() = _binding!!
-    private val SPLASH_DELAY = 2000L // 2 seconds minimum delay
     private val TAG = "SplashActivity"
+    private var isReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Handle the splash screen transition
-        installSplashScreen()
-
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "Splash started")
+        
+        // Keep the splash screen on-screen until we are ready to navigate
+        splashScreen.setKeepOnScreenCondition { !isReady }
+
+        Log.d(TAG, "Splash Activity Started")
         
         try {
-            // Remove any window background manually set to avoid white flash
-            window.setBackgroundDrawable(null)
-
             _binding = ActivitySplashBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            // Add simple fade-in animation for logo and text
-            binding.ivLogo.alpha = 0f
-            binding.tvAppName.alpha = 0f
-            binding.tvSubtitle.alpha = 0f
+            // Reveal the activity layout by dismissing the system splash overlay
+            isReady = true
 
-            binding.ivLogo.animate().alpha(1f).setDuration(1000).start()
-            binding.tvAppName.animate().alpha(1f).setDuration(1000).setStartDelay(300).start()
-            binding.tvSubtitle.animate().alpha(1f).setDuration(1000).setStartDelay(600).start()
-
-            // Start navigation check after the specified delay
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (!isFinishing && !isDestroyed) {
-                    checkAuthAndNavigate()
-                }
-            }, SPLASH_DELAY)
+            // Start authentication check
+            checkAuthAndNavigate()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error in onCreate", e)
+            isReady = true
             navigateToLogin()
         }
     }
@@ -61,22 +52,33 @@ class SplashActivity : AppCompatActivity() {
     private fun checkAuthAndNavigate() {
         lifecycleScope.launch {
             try {
-                val currentUser = FirebaseAuth.getInstance().currentUser
-                val sessionManager = SessionManager(this@SplashActivity)
-                val isLoggedIn = sessionManager.isLoggedIn()
+                // Ensure a minimum splash visibility for brand identity
+                delay(1500)
                 
-                Log.d(TAG, "Auth check: currentUser=${currentUser?.uid}, isLoggedIn=$isLoggedIn")
+                Log.d(TAG, "Starting auth check...")
+                val auth = FirebaseAuth.getInstance()
+                val currentUser = auth.currentUser
+                val sessionManager = SessionManager(this@SplashActivity)
+                
+                // Timeout added to prevent hanging on DataStore or internal logic
+                val isLoggedIn = withTimeoutOrNull(3000) {
+                    sessionManager.isLoggedIn()
+                } ?: false
+                
+                Log.d(TAG, "Auth check: uid=${currentUser?.uid}, isLoggedIn=$isLoggedIn")
 
                 if (currentUser != null && isLoggedIn) {
-                    Log.d(TAG, "Navigating to Dashboard")
+                    Log.d(TAG, "Proceeding to Dashboard")
                     navigateToDashboard()
                 } else {
-                    Log.d(TAG, "Navigating to Login: currentUser is null or session not logged in")
+                    Log.d(TAG, "Proceeding to Login")
                     navigateToLogin()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error during auth check", e)
+                Log.e(TAG, "Auth check failed", e)
                 navigateToLogin()
+            } finally {
+                isReady = true
             }
         }
     }

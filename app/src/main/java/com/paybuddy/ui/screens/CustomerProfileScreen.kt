@@ -212,7 +212,7 @@ fun CustomerOverviewCard(
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GlassEdge.copy(alpha = 0.5f)))
             Spacer(modifier = Modifier.height(20.dp))
             
-            DetailRow("Total Sales", "$totalSalesCount", Color.White)
+            DetailRow("Total Sales", totalSalesCount.toString(), Color.White)
             DetailRow("Total Value", "₹ ${"%.0f".format(Locale.ENGLISH, totalSalesValue)}", NeonBlue)
             DetailRow("Total Paid", "₹ ${"%.0f".format(Locale.ENGLISH, totalPaidValue)}", NeonGreen)
             DetailRow("Outstanding", "₹ ${"%.0f".format(Locale.ENGLISH, totalRemainingValue)}", NeonRed)

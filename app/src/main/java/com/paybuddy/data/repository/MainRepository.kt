@@ -1171,20 +1171,16 @@ class MainRepository(
         val subscription = firestore.collection("ledger")
             .whereEqualTo("vendorId", vendorId)
             .whereEqualTo("customerId", customerId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e(TAG, "LEDGER_QUERY_ERROR: Failed to fetch ledger for customer $customerId. " +
-                            "This is often due to a missing Firestore index. " +
                             "Error: ${error.message}", error)
-                    // On Firestore listener error, we intentionally avoid emitting emptyList()
-                    // This prevents wiping already displayed cached/valid ledger history
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val items = snapshot?.documents?.mapNotNull { mapDocumentToLedgerEntry(it) } ?: emptyList()
                 Log.d(TAG, "Fetched ${items.size} ledger entries for customer $customerId")
-                trySend(items)
+                trySend(items.sortedByDescending { it.createdAt })
             }
         awaitClose { subscription.remove() }
     }
@@ -1199,18 +1195,16 @@ class MainRepository(
             .whereEqualTo("vendorId", vendorId)
             .whereEqualTo("customerId", customerId)
             .whereEqualTo("type", "payment")
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e(TAG, "PAYMENT_LEDGER_QUERY_ERROR: Failed to fetch payment ledger for customer $customerId. " +
-                            "This is often due to a missing Firestore index. " +
                             "Error: ${error.message}", error)
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val items = snapshot?.documents?.mapNotNull { mapDocumentToLedgerEntry(it) } ?: emptyList()
                 Log.d(TAG, "Fetched ${items.size} payment ledger entries for customer $customerId")
-                trySend(items)
+                trySend(items.sortedByDescending { it.createdAt })
             }
         awaitClose { subscription.remove() }
     }
@@ -1226,7 +1220,6 @@ class MainRepository(
         val subscription = firestore.collection("sales")
             .whereEqualTo("vendorId", trimmedVendorId)
             .whereEqualTo("isArchived", false)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     if (SessionManager.isAuthTransitioning) {
@@ -1255,7 +1248,7 @@ class MainRepository(
                         )
                     }
                 } ?: emptyList()
-                trySend(sales)
+                trySend(sales.sortedByDescending { it.createdAt })
             }
         awaitClose { subscription.remove() }
     }

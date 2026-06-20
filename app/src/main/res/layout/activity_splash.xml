@@ -47,10 +47,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_app_name" />
 
-    <!-- Moving the Lottie to be a background effect or subtle overlay if needed,
-         but the user asked for icon with effects ABOVE the text.
-         Let's keep Lottie for the "effects" part but hide it for now or resize it. -->
-
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/lottie_animation"
         android:layout_width="match_parent"

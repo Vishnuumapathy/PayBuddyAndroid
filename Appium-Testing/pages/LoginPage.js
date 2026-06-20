@@ -12,13 +12,15 @@ class LoginPage extends BasePage {
         await this.type(await this.passwordInput, password);
         await this.click(await this.loginButton);
 
-        // Handle potential permission/reminder dialogs
-        await this.handleCommonDialogs();
+        // Wait for transition and handle popups immediately on the next screen
+        await driver.pause(2000);
+        const DashboardPage = require('./DashboardPage');
+        await DashboardPage.handlePopups();
     }
 
     async handleCommonDialogs() {
-        const dialogAllowBtn = $('//*[@resource-id="android:id/button1"] | //*[@text="Allow"]');
-        const permissionAllowBtn = $('//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]');
+        const dialogAllowBtn = await $('//*[@resource-id="android:id/button1"] | //*[@text="Allow"]');
+        const permissionAllowBtn = await $('//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]');
 
         if (await this.isDisplayed(dialogAllowBtn)) {
             await this.click(dialogAllowBtn);

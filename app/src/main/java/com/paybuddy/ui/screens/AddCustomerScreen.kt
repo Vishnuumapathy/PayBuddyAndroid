@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -100,7 +102,7 @@ fun AddCustomerScreen(
                             if (nameError != null && it.isNotBlank()) nameError = null
                         },
                         label = { Text("Full Name") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "customer_name_input" },
                         enabled = !isSaving,
                         isError = nameError != null,
                         supportingText = nameError?.let { { Text(it, color = NeonRed) } },
@@ -124,7 +126,7 @@ fun AddCustomerScreen(
                             }
                         },
                         label = { Text("Phone Number") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "customer_phone_input" },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         enabled = !isSaving,
                         isError = phoneError != null,
@@ -182,7 +184,8 @@ fun AddCustomerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 4.dp)
+                    .semantics { contentDescription = "submit_customer_button" },
                 enabled = !isSaving,
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)

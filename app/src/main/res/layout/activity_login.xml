@@ -6,18 +6,18 @@
     android:background="@drawable/main_bg_gradient"
     android:padding="24dp">
 
-    <!-- Animated Logo -->
+    <!-- Animated Logo - Temporarily set to GONE to fix potential ANR -->
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/lottie_logo"
         android:layout_width="140dp"
         android:layout_height="140dp"
         android:layout_marginTop="24dp"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:lottie_autoPlay="true"
-        app:lottie_loop="true"
-        app:lottie_rawRes="@raw/splash_anim" />
+        app:lottie_autoPlay="false"
+        app:lottie_loop="false" />
 
     <TextView
         android:id="@+id/tv_brand"

@@ -125,18 +125,16 @@ class CustomerViewModel(private val repository: MainRepository) : ViewModel() {
         try {
             if (sales.isEmpty()) return "Low Risk"
 
-            val purchaseCount = sales.size
             val totalFinalAmount = sales.sumOf { it.finalAmount }
             val totalPaidAmount = sales.sumOf { it.amountPaid }
             
             val paymentCompletionRatio = if (totalFinalAmount > 0) totalPaidAmount / totalFinalAmount else 1.0
             
             // Check for any overdue installments
-            val hasOverdue = installments.any { it.status == "OVERDUE" }
             val latePaymentCount = installments.count { it.status == "OVERDUE" }
 
             return when {
-                latePaymentCount > 2 || (paymentCompletionRatio < 0.4 && purchaseCount > 0) -> "High Risk"
+                latePaymentCount > 2 || paymentCompletionRatio < 0.4 -> "High Risk"
                 latePaymentCount > 0 || paymentCompletionRatio < 0.8 -> "Medium Risk"
                 else -> "Low Risk"
             }

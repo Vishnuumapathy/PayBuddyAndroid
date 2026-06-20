@@ -17,6 +17,7 @@ class BasePage {
                 await driver.touchAction({ action: 'tap', x, y });
             } catch (e) {
                 Logger.error(`Coordinate tap also failed: ${e.message}`);
+                throw new Error(`Failed to click element ${selector} after trying coordinates: ${e.message}`);
             }
         }
     }
@@ -24,11 +25,14 @@ class BasePage {
     async type(element, text) {
         try {
             await element.waitForDisplayed({ timeout: 20000 });
+            await element.click();
+            await driver.pause(500);
+            await element.clearValue();
             await element.setValue(text);
             if (await driver.isKeyboardShown()) await driver.hideKeyboard();
             Logger.info(`Typed "${text}" into element: ${element.selector}`);
         } catch (error) {
-            Logger.error(`Failed to type into element: ${element.selector}. Error: ${error.message}`);
+            Logger.error(`Failed to type "${text}" into element: ${element.selector}. Error: ${error.message}`);
         }
     }
 

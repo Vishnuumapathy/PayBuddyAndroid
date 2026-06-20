@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -64,17 +66,19 @@ fun DashboardScreen(
                     actionIconContentColor = Color.White
                 ),
                 title = {
-                    Column {
+                    Column(modifier = Modifier.semantics { contentDescription = "welcome_section" }) {
                         Text(
                             text = "$greeting, $vendorName",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                            color = Color.White,
+                            modifier = Modifier.semantics { contentDescription = "welcome_text" }
                         )
                         Text(
                             text = shopName,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            modifier = Modifier.semantics { contentDescription = "shop_name_text" }
                         )
                     }
                 },
@@ -82,7 +86,10 @@ fun DashboardScreen(
                     IconButton(onClick = onRemindersClick) {
                         Icon(Icons.Default.Notifications, contentDescription = "Reminders")
                     }
-                    IconButton(onClick = onSettingsClick) {
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.semantics { contentDescription = "settings_button" }
+                    ) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
@@ -95,7 +102,8 @@ fun DashboardScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp)
+                    .semantics { contentDescription = "stats_grid" },
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 item {

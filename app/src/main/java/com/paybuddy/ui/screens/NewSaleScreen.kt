@@ -3,6 +3,7 @@ package com.paybuddy.ui.screens
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +19,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -227,7 +230,7 @@ fun NewSaleScreen(
                             value = itemName,
                             onValueChange = { itemName = it },
                             label = { Text("Item Name") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "item_name_input" },
                             enabled = !isSaving,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = NeonBlue,
@@ -242,7 +245,7 @@ fun NewSaleScreen(
                                 value = quantity,
                                 onValueChange = { quantity = it },
                                 label = { Text("Qty") },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).semantics { contentDescription = "qty_input" },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 enabled = !isSaving,
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -256,7 +259,7 @@ fun NewSaleScreen(
                                 value = unitPrice,
                                 onValueChange = { unitPrice = it },
                                 label = { Text("Unit Price") },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).semantics { contentDescription = "unit_price_input" },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 enabled = !isSaving,
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -453,7 +456,13 @@ fun NewSaleScreen(
                         .padding(16.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Summary", style = MaterialTheme.typography.titleMedium, color = NeonBlue, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Summary", 
+                            style = MaterialTheme.typography.titleMedium, 
+                            color = NeonBlue, 
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.semantics { contentDescription = "summary_section" }
+                        )
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Final Amount", color = TextSecondary)
                             Text("₹ %.2f".format(Locale.ENGLISH, finalAmount), color = Color.White, fontWeight = FontWeight.Bold)
@@ -538,7 +547,8 @@ fun NewSaleScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 4.dp)
+                        .semantics { contentDescription = "submit_sale_button" },
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = NeonBlue),
                     enabled = itemName.isNotBlank() && unitPrice.isNotBlank() && selectedCustomer != null && !isSaving && !isOverpaid && !isNegativePaid && !isInvalidCount && !isPastDate

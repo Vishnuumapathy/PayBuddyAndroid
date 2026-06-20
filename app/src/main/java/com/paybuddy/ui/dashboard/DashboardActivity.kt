@@ -19,6 +19,7 @@ import com.paybuddy.databinding.ActivityDashboardBinding
 import com.paybuddy.ui.auth.LoginActivity
 import com.paybuddy.utils.SessionManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class DashboardActivity : AppCompatActivity() {
 
@@ -61,7 +62,10 @@ class DashboardActivity : AppCompatActivity() {
                 try {
                     // Authentication Guard
                     val currentUser = FirebaseAuth.getInstance().currentUser
-                    val isLoggedIn = sessionManager.isLoggedIn()
+                    val isLoggedIn = withTimeoutOrNull(3000) {
+                        sessionManager.isLoggedIn()
+                    } ?: false
+
                     Log.d(TAG, "Auth Guard: currentUser=${currentUser?.uid}, isLoggedIn=$isLoggedIn")
                     
                     if (currentUser == null || !isLoggedIn) {

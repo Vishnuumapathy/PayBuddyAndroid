@@ -1,24 +1,41 @@
 const BasePage = require('./BasePage');
+const { Logger } = require('../utils/logger');
 
 class DashboardPage extends BasePage {
-    // Verified Resource IDs & Content Descriptions
-    get welcomeText() { return $('//*[contains(@text, "Good")] | //*[@resource-id="com.paybuddy:id/tv_welcome"]'); }
-    get statsGrid() { return $('//*[@resource-id="com.paybuddy:id/grid_stats"] | //*[contains(@text, "Today")]'); }
-    get newSaleBtn() { return $('//android.widget.TextView[@text="New Sale"] | //*[@resource-id="com.paybuddy:id/btn_new_sale"] | //android.widget.Button[contains(@text, "New Sale")]'); }
-    get recordPaymentBtn() { return $('//android.widget.TextView[@text="Payment"] | //*[@resource-id="com.paybuddy:id/btn_record_payment"]'); }
-    get bottomNav() { return $('//*[@resource-id="com.paybuddy:id/bottom_nav"]'); }
-    get ledgerList() { return $('//*[@resource-id="com.paybuddy:id/rv_ledger"]'); }
-
-    // Navigation IDs with Text Fallbacks for Bottom Nav
-    get navDashboard() { return $('//*[@resource-id="com.paybuddy:id/dashboardFragment"] | //*[contains(@content-desc, "Dashboard")] | //*[@text="Dashboard"]'); }
+    get welcomeText() { return $('~welcome_text | //*[contains(@text, "Good")] | //*[@resource-id="com.paybuddy:id/tv_welcome"]'); }
+    get statsGrid() { return $('~stats_grid | //*[@resource-id="com.paybuddy:id/grid_stats"] | //*[contains(@text, "Today")]'); }
     get navCustomers() { return $('//*[@resource-id="com.paybuddy:id/customerFragment"] | //*[contains(@content-desc, "Customers")] | //*[@text="Customers"]'); }
     get navSales() { return $('//*[@resource-id="com.paybuddy:id/salesFragment"] | //*[contains(@content-desc, "Sales")] | //*[@text="Sales"]'); }
     get navLedger() { return $('//*[@resource-id="com.paybuddy:id/paymentHistoryFragment"] | //*[contains(@content-desc, "Payments")] | //*[contains(@content-desc, "Ledger")] | //*[@text="Payments"] | //*[@text="Ledger"]'); }
-    get navReminders() { return $('//*[@resource-id="com.paybuddy:id/reminderFragment"] | //*[contains(@content-desc, "Reminders")] | //*[@text="Reminders"]'); }
-    get navSettings() { return $('~Settings'); }
+    get navSettings() { return $('~settings_button | ~Settings'); }
 
     async isAt() {
+        await this.handlePopups();
         return await this.isDisplayed(await this.welcomeText);
+    }
+
+    async handlePopups() {
+        Logger.info('Scanning for blocking popups...');
+
+        // Wait and click "Allow" on the Reminder Popup
+        const allowBtn = await $('//*[@resource-id="android:id/button1"] | //*[@text="Allow"]');
+        for(let i = 0; i < 3; i++) {
+            if (await allowBtn.isDisplayed()) {
+                Logger.info('Clicking "Allow" on Reminder Dialog...');
+                await allowBtn.click();
+                await driver.pause(1500);
+            } else {
+                await driver.pause(1000); // Wait for it to animate in
+            }
+        }
+
+        // Handle the Android System Permission if it appears
+        const systemAllow = await $('//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]');
+        if (await systemAllow.isDisplayed()) {
+            Logger.info('Clicking "Allow" on System Permission...');
+            await systemAllow.click();
+            await driver.pause(1000);
+        }
     }
 }
 

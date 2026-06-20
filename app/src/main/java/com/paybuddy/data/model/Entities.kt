@@ -1,5 +1,7 @@
 package com.paybuddy.data.model
 
+import com.google.firebase.firestore.Exclude
+import com.google.firebase.firestore.PropertyName
 import java.util.Date
 
 data class Vendor(
@@ -19,10 +21,13 @@ data class Customer(
     val phone: String = "",
     val totalAmount: Double = 0.0,
     val paidAmount: Double = 0.0,
-    val isArchived: Boolean = false,
+    @get:PropertyName("isArchived")
+    @set:PropertyName("isArchived")
+    var isArchived: Boolean = false,
     val archivedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    @get:Exclude
     val remainingBalance: Double
         get() = (totalAmount - paidAmount).coerceAtLeast(0.0)
 }
@@ -41,10 +46,13 @@ data class Sale(
     val paymentType: String = "Full Payment", // "Full Payment" or "Partial Payment"
     val amountPaid: Double = 0.0,
     val status: String = "PENDING", // "PENDING" or "COMPLETED"
-    val isArchived: Boolean = false,
+    @get:PropertyName("isArchived")
+    @set:PropertyName("isArchived")
+    var isArchived: Boolean = false,
     val archivedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    @get:Exclude
     val finalAmount: Double
         get() = if (paymentType == "Full Payment") {
             totalAmount
@@ -52,9 +60,11 @@ data class Sale(
             totalAmount + (totalAmount * interestRate / 100)
         }
     
+    @get:Exclude
     val remainingAmount: Double
         get() = (finalAmount - amountPaid).coerceAtLeast(0.0)
 
+    @get:Exclude
     val isCompleted: Boolean
         get() = remainingAmount <= 0.01 // Use small epsilon for double comparison
 }
