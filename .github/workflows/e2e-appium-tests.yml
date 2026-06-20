@@ -28,6 +28,16 @@ jobs:
             Write-Host "google-services.json already exists"
           }
 
+      - name: Create local.properties if missing
+        shell: powershell
+        run: |
+          $sdkPath = "C:/Users/vichu/AppData/Local/Android/Sdk"
+          if ($env:ANDROID_HOME) {
+            $sdkPath = $env:ANDROID_HOME.Replace("\", "/")
+          }
+          Write-Host "Setting Android SDK path in local.properties to: $sdkPath"
+          "sdk.dir=$sdkPath" | Out-File -FilePath "local.properties" -Encoding utf8
+
       - name: Build Android Debug APK
         shell: powershell
         run: .\gradlew.bat assembleDebug
