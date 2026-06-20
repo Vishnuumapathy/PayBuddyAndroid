@@ -22,37 +22,8 @@ jobs:
           if (!(Test-Path -Path "app/google-services.json")) {
             Write-Host "Creating mock google-services.json"
             if (!(Test-Path -Path "app")) { New-Item -ItemType Directory -Path "app" | Out-Null }
-            @'
-            {
-              "project_info": {
-                "project_number": "1234567890",
-                "project_id": "mock-project",
-                "storage_bucket": "mock-project.appspot.com"
-              },
-              "client": [
-                {
-                  "client_info": {
-                    "mobilesdk_app_id": "1:1234567890:android:mockapp12345",
-                    "android_client_info": {
-                      "package_name": "com.paybuddy"
-                    }
-                  },
-                  "oauth_client": [],
-                  "api_key": [
-                    {
-                      "current_key": "mock-api-key"
-                    }
-                  ],
-                  "services": {
-                    "appinvite_service": {
-                      "other_platform_oauth_client": []
-                    }
-                  }
-                }
-              ],
-              "configuration_version": "1"
-            }
-            '@ | Out-File -FilePath "app/google-services.json" -Encoding utf8
+            $json = '{"project_info":{"project_number":"1234567890","project_id":"mock-project","storage_bucket":"mock-project.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:1234567890:android:mockapp12345","android_client_info":{"package_name":"com.paybuddy"}},"oauth_client":[],"api_key":[{"current_key":"mock-api-key"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}'
+            $json | Out-File -FilePath "app/google-services.json" -Encoding utf8
           } else {
             Write-Host "google-services.json already exists"
           }
