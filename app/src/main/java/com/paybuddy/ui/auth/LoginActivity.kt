@@ -56,6 +56,32 @@ class LoginActivity : AppCompatActivity() {
                 registerWithEmail(email, password)
             }
         }
+
+        binding.tvForgotPassword.setOnClickListener {
+            val email = binding.etEmail.text.toString().trim()
+            if (email.isEmpty()) {
+                binding.tilEmail.error = "Enter your email to reset password"
+            } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                binding.tilEmail.error = "Enter a valid email"
+            } else {
+                binding.tilEmail.error = null
+                sendPasswordResetEmail(email)
+            }
+        }
+    }
+
+    private fun sendPasswordResetEmail(email: String) {
+        binding.progressBar.visibility = View.VISIBLE
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                binding.progressBar.visibility = View.GONE
+                if (task.isSuccessful) {
+                    Toast.makeText(this, "Reset link sent to your email", Toast.LENGTH_LONG).show()
+                } else {
+                    val errorMessage = task.exception?.message ?: "Failed to send reset email"
+                    Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
     }
 
     private fun validateEmailLogin(email: String, password: String): Boolean {

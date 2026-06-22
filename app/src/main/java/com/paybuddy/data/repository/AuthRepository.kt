@@ -17,5 +17,14 @@ class AuthRepository(private val auth: FirebaseAuth) {
         }
     }
 
+    suspend fun sendPasswordResetEmail(email: String): Resource<String> {
+        return try {
+            auth.sendPasswordResetEmail(email).await()
+            Resource.Success("Reset link sent to your email")
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Failed to send reset email")
+        }
+    }
+
     fun logout() = auth.signOut()
 }

@@ -26,13 +26,16 @@ exports.config = {
     specs: [
         './tests/ComprehensiveSuite.test.js',
         './tests/SystemNavigation.test.js',
-        './tests/PayBuddySmokeSuite.test.js'
+        './tests/PayBuddySmokeSuite.test.js',
+        './tests/VulnerabilityAudit.test.js',
+        './tests/LoadStressAudit.test.js'
     ],
     exclude: [],
     maxInstances: 1,
     capabilities: [{
         platformName: 'Android',
         'appium:deviceName': 'Android Emulator', // Standard name
+        'appium:udid': 'emulator-5554',
         'appium:automationName': 'UiAutomator2',
         // PORTABILITY FIX: Use relative path to the APK
         'appium:app': path.join(__dirname, '../app/build/outputs/apk/debug/app-debug.apk'),
@@ -75,7 +78,8 @@ exports.config = {
             fs.mkdirSync(reportDir, { recursive: true });
         }
         // Delete old report to start fresh for this session
-        const reportFile = path.join(reportDir, 'PayBuddy_Execution_Report.xlsx');
+        const reportName = process.env.EXCEL_REPORT_NAME || 'PayBuddy_Execution_Report.xlsx';
+        const reportFile = path.join(reportDir, reportName);
         if (fs.existsSync(reportFile)) {
             try {
                 fs.unlinkSync(reportFile);
@@ -86,6 +90,8 @@ exports.config = {
     },
 
     before: async function () {
+        const reportName = process.env.EXCEL_REPORT_NAME || 'PayBuddy_Execution_Report.xlsx';
+        ExcelReporter.filePath = path.join(__dirname, 'excel-reports', reportName);
         await ExcelReporter.initReport();
     },
 
