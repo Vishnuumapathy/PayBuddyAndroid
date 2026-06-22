@@ -6,6 +6,17 @@ class ExcelReporter {
     static workbook;
     static filePath = path.join(__dirname, '../excel-reports/PayBuddy_Execution_Report.xlsx');
 
+    static getSheetName() {
+        const baseName = path.basename(this.filePath);
+        if (baseName === 'PayBuddy_Vulnerability_Report.xlsx') {
+            return 'Vulnerability Tests';
+        }
+        if (baseName === 'PayBuddy_Load_Report.xlsx') {
+            return 'Load Tests';
+        }
+        return null;
+    }
+
     static async initReport() {
         if (!fs.existsSync(path.dirname(this.filePath))) {
             fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
@@ -19,13 +30,23 @@ class ExcelReporter {
             } catch (e) {}
         }
 
-        const categories = ['UI-UX', 'Functional', 'Unit', 'Validation', 'Deployment'];
-        for (const cat of categories) {
-            let ws = this.workbook.getWorksheet(cat);
+        const singleSheet = this.getSheetName();
+        if (singleSheet) {
+            let ws = this.workbook.getWorksheet(singleSheet);
             if (!ws) {
-                ws = this.workbook.addWorksheet(cat);
+                ws = this.workbook.addWorksheet(singleSheet);
                 ws.columns = this.getColumnDefinitions();
                 this.formatHeader(ws);
+            }
+        } else {
+            const categories = ['UI-UX', 'Functional', 'Unit', 'Validation', 'Deployment'];
+            for (const cat of categories) {
+                let ws = this.workbook.getWorksheet(cat);
+                if (!ws) {
+                    ws = this.workbook.addWorksheet(cat);
+                    ws.columns = this.getColumnDefinitions();
+                    this.formatHeader(ws);
+                }
             }
         }
     }
@@ -55,7 +76,8 @@ class ExcelReporter {
     static async addResult(data) {
         if (!this.workbook) await this.initReport();
 
-        const categoryName = data.category || 'Functional';
+        const singleSheet = this.getSheetName();
+        const categoryName = singleSheet || data.category || 'Functional';
         let worksheet = this.workbook.getWorksheet(categoryName);
         if (!worksheet) worksheet = this.workbook.addWorksheet(categoryName);
 
