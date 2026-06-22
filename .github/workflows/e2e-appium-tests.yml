@@ -113,7 +113,7 @@ jobs:
           EXCEL_REPORT_NAME: PayBuddy_Execution_Report.xlsx
         run: |
           cd Appium-Testing
-          npx wdio run ./wdio.conf.js --spec ./tests/ComprehensiveSuite.test.js,./tests/SystemNavigation.test.js,./tests/PayBuddySmokeSuite.test.js,./tests/FunctionalAudit.test.js
+          npx wdio run ./wdio.conf.js --spec ./tests/ComprehensiveSuite.test.js --spec ./tests/SystemNavigation.test.js --spec ./tests/PayBuddySmokeSuite.test.js --spec ./tests/FunctionalAudit.test.js
 
       - name: Upload Excel Execution Report
         uses: actions/upload-artifact@v4
