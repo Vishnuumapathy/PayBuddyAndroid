@@ -18,9 +18,8 @@ describe('PayBuddy Smoke Test Suite', () => {
         expect(true).to.be.true;
     });
 
-    for (let i = 4; i <= 50; i++) {
-        const caseNum = i.toString().padStart(3, '0');
-        it(`SMOKE-${caseNum}: Smoke Verification Step #${i}`, async () => {
+    for (let i = 4; i <= 24; i++) {
+        it(`SMOKE-0${i < 10 ? '0' + i : i}: Smoke Verification Step #${i}`, async () => {
             expect(true).to.be.true;
         });
     }

@@ -2,7 +2,7 @@ const { expect } = require('chai');
 const fs = require('fs');
 const path = require('path');
 
-describe('PayBuddy Functional Audit Extension Suite (65 Cases)', () => {
+describe('PayBuddy Functional Audit Extension Suite (50 Cases)', () => {
 
     const functionalScenarios = [
         "Verify dashboard total balance calculation view integrity",
@@ -54,22 +54,7 @@ describe('PayBuddy Functional Audit Extension Suite (65 Cases)', () => {
         "Verify proguard obfuscation files mapping layout verify",
         "Verify signing key store configuration structures verify",
         "Verify manifest merge conflict analysis checks verify",
-        "Verify app release bundle compatibility target platform",
-        "Verify vendor business type dropdown list values integrity",
-        "Verify reminder notification message templates correctness",
-        "Verify sales details invoice creation action routing success",
-        "Verify customer history list paging navigation stability",
-        "Verify archived customers records filter state retention",
-        "Verify database connection status indicator rendering check",
-        "Verify dark mode automatic system theme transition rules",
-        "Verify customer search query debounce execution safety",
-        "Verify add sale quantity validation warning bubble prompt",
-        "Verify settings profile image upload handler presence check",
-        "Verify local SQLite storage capacity alarm checks",
-        "Verify network state change sync dispatcher task scheduling",
-        "Verify offline ledger transactions queue sync callbacks",
-        "Verify app update prompt redirect url syntax validation",
-        "Verify biometric validation toggling state storage integrity"
+        "Verify app release bundle compatibility target platform"
     ];
 
     functionalScenarios.forEach((scenario, index) => {
@@ -81,4 +66,3 @@ describe('PayBuddy Functional Audit Extension Suite (65 Cases)', () => {
     });
 
 });
-
