@@ -20,6 +20,10 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
             // Simplified for now
             findNavController().navigate(R.id.action_login_to_onboarding)
         }
+
+        binding.tvCreateAccount.setOnClickListener {
+            findNavController().navigate(R.id.action_login_to_register)
+        }
     }
 
     override fun onDestroyView() {
