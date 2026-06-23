@@ -1366,268 +1366,90 @@ class MainRepository(
     
     suspend fun recordPayment(payment: Payment) {
         val db = firestore
-        var attempt = 0
-        val maxAttempts = 3
+        try {
+            db.runTransaction { transaction ->
+                // 1. ALL READS FIRST
+                val customerRef = db.collection("customers").document(payment.customerId)
+                val customerDoc = transaction.get(customerRef)
+                val currentCustomer = mapDocumentToCustomer(customerDoc)
+                    ?: throw FirebaseFirestoreException("Customer not found", FirebaseFirestoreException.Code.NOT_FOUND)
 
-        Log.d("PaymentDebug", "recordPayment start: uid=${FirebaseAuth.getInstance().currentUser?.uid}, vendorId=${payment.vendorId}, customerId=${payment.customerId}, saleId=${payment.saleId}, installmentId=${payment.installmentId}, amount=${payment.amount}")
-        
-        while (attempt < maxAttempts) {
-            attempt++
-            
-            // 1. Identification Phase (Queries outside transaction)
-            // We refresh the candidate set for every attempt to resolve staleness from concurrency.
-            val saleIdsToRead: List<String>
-            val installmentIdsToRead: List<String>
-
-            try {
-                if (payment.saleId.isNotEmpty()) {
-                    saleIdsToRead = listOf(payment.saleId)
-                    // Fetch all installments for this specific sale
-                    installmentIdsToRead = db.collection("installments")
-                        .whereEqualTo("vendorId", payment.vendorId)
-                        .whereEqualTo("saleId", payment.saleId)
-                        .get().await().documents.map { it.id }
-                } else {
-                    // Account-level: Fetch ALL pending sales (FIFO)
-                    val pendingSalesDocs = db.collection("sales")
-                        .whereEqualTo("vendorId", payment.vendorId)
-                        .whereEqualTo("customerId", payment.customerId)
-                        .whereEqualTo("status", "PENDING")
-                        .whereEqualTo("isArchived", false)
-                        .orderBy("createdAt", Query.Direction.ASCENDING)
-                        .get().await().documents
-                    
-                    val baseSaleIds = pendingSalesDocs.map { it.id }.toMutableList()
-                    
-                    // Priority Inclusion: Ensure targeted installment's sale is in the set
-                    if (!payment.installmentId.isNullOrEmpty()) {
-                        try {
-                            val instDoc = db.collection("installments").document(payment.installmentId).get().await()
-                            if (instDoc.getString("vendorId") == payment.vendorId) {
-                                val sId = instDoc.getString("saleId")
-                                if (sId != null && !baseSaleIds.contains(sId)) {
-                                    baseSaleIds.add(0, sId) 
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Optional installment resolution failed: ${e.message}")
-                        }
-                    }
-                    saleIdsToRead = baseSaleIds
-                    
-                    // Optimized installment fetch: only for the specific sales being processed
-                    val installments = mutableListOf<String>()
-                    if (saleIdsToRead.isNotEmpty()) {
-                        // Chunking to respect Firestore's 30-item whereIn limit
-                        saleIdsToRead.chunked(30).forEach { chunk ->
-                            val docs = db.collection("installments")
-                                .whereEqualTo("vendorId", payment.vendorId)
-                                .whereIn("saleId", chunk)
-                                .get().await().documents
-                            installments.addAll(docs.map { it.id })
-                        }
-                    }
-                    installmentIdsToRead = installments
+                // Get Installment if linked
+                var currentInst: Installment? = null
+                if (!payment.installmentId.isNullOrBlank()) {
+                    val instRef = db.collection("installments").document(payment.installmentId)
+                    val instDoc = transaction.get(instRef)
+                    currentInst = mapDocumentToInstallment(instDoc)
                 }
 
-                db.runTransaction { transaction ->
-                    // --- IDEMPOTENCY ---
-                    val paymentRef = db.collection("payments").document(payment.paymentId)
-                    if (transaction.get(paymentRef).exists()) return@runTransaction
-
-                    // --- READ PHASE (Strict Transactional Consistency) ---
-                    // Rule 1: Use transaction.get() for all entities to ensure a consistent snapshot
-                    val customerRef = db.collection("customers").document(payment.customerId)
-                    val customerDoc = transaction.get(customerRef)
-                    val currentCustomer = mapDocumentToCustomer(customerDoc)
-                        ?: throw FirebaseFirestoreException("Customer not found", FirebaseFirestoreException.Code.NOT_FOUND)
-                    
-                    Log.d("PaymentDebug", "Customer read: customerId=${payment.customerId}, vendorId=${currentCustomer.vendorId}, totalAmount=${currentCustomer.totalAmount}, paidAmount=${currentCustomer.paidAmount}")
-
-                    if (currentCustomer.vendorId != payment.vendorId) {
-                        throw FirebaseFirestoreException("Vendor mismatch", FirebaseFirestoreException.Code.PERMISSION_DENIED)
-                    }
-
-                    // Re-fetch all candidate sales and installments inside the transaction.
-                    // This ensures we are not operating on stale values from the Identification Phase.
-                    val sales = saleIdsToRead.mapNotNull { id ->
-                        val doc = transaction.get(db.collection("sales").document(id))
-                        val sale = mapDocumentToSale(doc)
-                        if (sale != null && sale.vendorId == payment.vendorId) sale else null
-                    }
-
-                    val installments = installmentIdsToRead.mapNotNull { id ->
-                        val doc = transaction.get(db.collection("installments").document(id))
-                        val inst = mapDocumentToInstallment(doc)
-                        if (inst != null && inst.vendorId == payment.vendorId) inst else null
-                    }
-
-                    sales.forEach { sale ->
-                        Log.d("PaymentDebug", "Sale resolved: saleId=${sale.saleId}, vendorId=${sale.vendorId}, customerId=${sale.customerId}, amountPaid=${sale.amountPaid}, status=${sale.status}")
-                    }
-
-                    installments.forEach { inst ->
-                        Log.d("PaymentDebug", "Installment resolved: installmentId=${inst.installmentId}, saleId=${inst.saleId}, vendorId=${inst.vendorId}, amount=${inst.amount}, amountPaid=${inst.amountPaid}, status=${inst.status}")
-                    }
-
-                    // --- DISTRIBUTION LOGIC ---
-                    var remainingPayment = payment.amount
-                    val updatedSales = mutableListOf<Sale>()
-                    val updatedInstallments = mutableListOf<Installment>()
-
-                    // Rule 3: Explicit validation against current (non-stale) state
-                    if (payment.saleId.isNotEmpty()) {
-                        val targetedSale = sales.find { it.saleId == payment.saleId }
-                            ?: throw FirebaseFirestoreException("Targeted sale not found or inaccessible", FirebaseFirestoreException.Code.NOT_FOUND)
-                        
-                        // Safety: Ensure sale hasn't been archived or completed by another process
-                        if (targetedSale.isArchived) {
-                             throw FirebaseFirestoreException("Cannot record payment: Sale has been archived.", FirebaseFirestoreException.Code.FAILED_PRECONDITION)
-                        }
-
-                        val currentRemaining = targetedSale.remainingAmount
-                        if (payment.amount > currentRemaining + 0.01) {
-                             throw FirebaseFirestoreException(
-                                 "Payment ₹${"%.2f".format(Locale.ENGLISH, payment.amount)} exceeds remaining balance ₹${"%.2f".format(Locale.ENGLISH, currentRemaining)}",
-                                 FirebaseFirestoreException.Code.OUT_OF_RANGE
-                             )
-                        }
-                    }
-
-                    // FIFO Distribution
-                    for (sale in sales) {
-                        if (remainingPayment <= 0.001) break
-                        
-                        // Safety: Skip archived or already completed sales
-                        if (sale.isArchived) continue
-                        
-                        val maxToSale = sale.remainingAmount // Calculated from up-to-date amountPaid read inside transaction
-                        if (maxToSale <= 0.001) continue
-                        
-                        val appliedToThisSale = minOf(remainingPayment, maxToSale)
-                        val newSalePaid = sale.amountPaid + appliedToThisSale
-                        
-                        updatedSales.add(sale.copy(
-                            amountPaid = newSalePaid,
-                            status = if (newSalePaid >= sale.finalAmount - 0.01) "COMPLETED" else "PENDING"
-                        ))
-                        
-                        var remForInst = appliedToThisSale
-                        
-                        // 1. Direct Target Allocation
-                        if (!payment.installmentId.isNullOrEmpty()) {
-                            val targetInst = installments.find { 
-                                it.installmentId == payment.installmentId && it.saleId == sale.saleId 
-                            }
-                            if (targetInst != null && targetInst.status != "PAID") {
-                                val toApply = minOf(remForInst, targetInst.remainingAmount)
-                                if (toApply > 0.001) {
-                                    val newInstPaid = targetInst.amountPaid + toApply
-                                    updatedInstallments.add(targetInst.copy(
-                                        amountPaid = newInstPaid,
-                                        status = if (newInstPaid >= targetInst.amount - 0.01) "PAID" else "PENDING"
-                                    ))
-                                    remForInst -= toApply
-                                }
-                            }
-                        }
-                        
-                        // 2. FIFO Installment Allocation within current sale
-                        if (remForInst > 0.001) {
-                            installments
-                                .filter { it.saleId == sale.saleId && it.installmentId != payment.installmentId && it.status != "PAID" }
-                                .sortedBy { it.dueDate }
-                                .forEach { inst ->
-                                    if (remForInst > 0.001) {
-                                        val toApply = minOf(remForInst, inst.remainingAmount)
-                                        if (toApply > 0.001) {
-                                            val newInstPaid = inst.amountPaid + toApply
-                                            updatedInstallments.add(inst.copy(
-                                                amountPaid = newInstPaid,
-                                                status = if (newInstPaid >= inst.amount - 0.01) "PAID" else "PENDING"
-                                            ))
-                                            remForInst -= toApply
-                                        }
-                                    }
-                                }
-                        }
-                        remainingPayment -= appliedToThisSale
-                    }
-
-                    // --- STALENESS SAFETY CHECK ---
-                    // If we exhausted our candidate list but the account still has debt, 
-                    // our pre-read list was stale (concurrency).
-                    if (payment.saleId.isEmpty()) {
-                        val currentPendingBalance = (currentCustomer.totalAmount - currentCustomer.paidAmount).coerceAtLeast(0.0)
-                        
-                        if (remainingPayment > 0.001 && currentPendingBalance > 0.001) {
-                            // Force an abort and retry the OUTER loop to fetch a fresh query set.
-                            throw IllegalStateException("STALE_CANDIDATE_SET_REFRESH_REQUIRED")
-                        }
-                    }
-
-                    // --- WRITE PHASE ---
-                    Log.d("PaymentDebug", "WRITE_PAYMENT_CREATE: path=payments/${payment.paymentId}, vendorId=${payment.vendorId}")
-                    transaction.set(paymentRef, payment)
-
-                    updatedSales.forEach { s ->
-                        Log.d("PaymentDebug", "WRITE_SALE_UPDATE: path=sales/${s.saleId}, vendorId=${s.vendorId}")
-                        transaction.update(db.collection("sales").document(s.saleId), 
-                            "amountPaid", s.amountPaid,
-                            "status", s.status
-                        )
-                    }
-
-                    updatedInstallments.forEach { inst ->
-                        Log.d("PaymentDebug", "WRITE_INSTALLMENT_UPDATE: path=installments/${inst.installmentId}, vendorId=${inst.vendorId}")
-                        transaction.update(db.collection("installments").document(inst.installmentId),
-                            "amountPaid", inst.amountPaid,
-                            "status", inst.status
-                        )
-                    }
-
-                    val finalCustomerPaid = currentCustomer.paidAmount + payment.amount
-                    Log.d("PaymentDebug", "WRITE_CUSTOMER_UPDATE: path=customers/${payment.customerId}, vendorId=${currentCustomer.vendorId}")
-                    transaction.update(customerRef, "paidAmount", finalCustomerPaid)
-
-                    val resolvedItemName = when {
-                        payment.saleId.isNotEmpty() -> sales.find { it.saleId == payment.saleId }?.itemName ?: "Unnamed Sale"
-                        updatedSales.isNotEmpty() -> if (updatedSales.size == 1) updatedSales.first().itemName else "Multiple Items"
-                        else -> "Account Payment"
-                    }
-
-                    val ledgerId = "LEDGER_PAY_${System.currentTimeMillis()}"
-                    val currentBalance = (currentCustomer.totalAmount - finalCustomerPaid).coerceAtLeast(0.0)
-                    val ledgerEntry = LedgerEntry(
-                        entryId = ledgerId,
-                        vendorId = payment.vendorId,
-                        customerId = payment.customerId,
-                        customerName = currentCustomer.name,
-                        itemName = resolvedItemName,
-                        saleId = payment.saleId.ifEmpty { null },
-                        type = "payment",
-                        amount = payment.amount,
-                        balanceAfter = currentBalance,
-                        createdAt = payment.createdAt
-                    )
-                    Log.d("PaymentDebug", "WRITE_LEDGER_CREATE: path=ledger/${ledgerId}, vendorId=${ledgerEntry.vendorId}")
-                    transaction.set(db.collection("ledger").document(ledgerId), ledgerEntry)
-
-                    null
-                }.await()
-
-                return 
-
-            } catch (e: Exception) {
-                if (e is IllegalStateException && e.message == "STALE_CANDIDATE_SET_REFRESH_REQUIRED" && attempt < maxAttempts) {
-                    Log.d(TAG, "Retrying recordPayment with fresh queries (attempt $attempt)")
-                    continue
+                // Determine Sale ID
+                val effectiveSaleId = when {
+                    !payment.saleId.isNullOrBlank() -> payment.saleId
+                    currentInst != null -> currentInst.saleId
+                    else -> null
                 }
-                val code = (e as? FirebaseFirestoreException)?.code?.name ?: "UNKNOWN"
-                Log.d("PaymentDebug", "Exception in recordPayment: message=${e.message}, code=$code, vendorId=${payment.vendorId}, customerId=${payment.customerId}, saleId=${payment.saleId}, installmentId=${payment.installmentId}")
-                Log.e(TAG, "Error recording payment: ${e.message}")
-                throw e
-            }
+
+                // Get Sale if identified
+                var currentSale: Sale? = null
+                if (effectiveSaleId != null) {
+                    val saleRef = db.collection("sales").document(effectiveSaleId)
+                    val saleDoc = transaction.get(saleRef)
+                    currentSale = mapDocumentToSale(saleDoc)
+                }
+
+                // 2. CALCULATIONS
+                val resolvedItemName = currentSale?.itemName ?: "Account Payment"
+                val finalCustomerPaid = currentCustomer.paidAmount + payment.amount
+                val currentBalance = (currentCustomer.totalAmount - finalCustomerPaid).coerceAtLeast(0.0)
+
+                // 3. ALL WRITES LAST
+                
+                // Record Payment
+                val finalPayment = if (payment.saleId.isBlank() && effectiveSaleId != null) {
+                    payment.copy(saleId = effectiveSaleId)
+                } else payment
+                transaction.set(db.collection("payments").document(payment.paymentId), finalPayment)
+
+                // Update Customer
+                transaction.update(customerRef, "paidAmount", finalCustomerPaid)
+
+                // Update Installment
+                if (currentInst != null) {
+                    val instRef = db.collection("installments").document(payment.installmentId!!)
+                    val newInstPaid = currentInst.amountPaid + payment.amount
+                    val newStatus = if (newInstPaid >= currentInst.amount - 0.01) "PAID" else currentInst.status
+                    transaction.update(instRef, "amountPaid", newInstPaid, "status", newStatus)
+                }
+
+                // Update Sale
+                if (currentSale != null) {
+                    val saleRef = db.collection("sales").document(effectiveSaleId!!)
+                    val newSalePaid = currentSale.amountPaid + payment.amount
+                    val newStatus = if (newSalePaid >= currentSale.finalAmount - 0.01) "COMPLETED" else "PENDING"
+                    transaction.update(saleRef, "amountPaid", newSalePaid, "status", newStatus)
+                }
+
+                // Record Ledger
+                val ledgerId = "LEDGER_PAY_${System.currentTimeMillis()}"
+                val ledgerEntry = LedgerEntry(
+                    entryId = ledgerId,
+                    vendorId = payment.vendorId,
+                    customerId = payment.customerId,
+                    customerName = currentCustomer.name,
+                    itemName = resolvedItemName,
+                    saleId = effectiveSaleId ?: "",
+                    type = "payment",
+                    amount = payment.amount,
+                    balanceAfter = currentBalance,
+                    createdAt = payment.createdAt
+                )
+                transaction.set(db.collection("ledger").document(ledgerId), ledgerEntry)
+
+                null
+            }.await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error recording payment: ${e.message}", e)
+            throw e
         }
     }
 

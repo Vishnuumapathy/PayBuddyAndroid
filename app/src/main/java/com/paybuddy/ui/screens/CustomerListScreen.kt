@@ -62,9 +62,7 @@ fun CustomerListScreen(
     }
 
     val filteredCustomers = remember(customers, searchQuery) {
-        customers.filter {
-            it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery)
-        }
+        customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery) }
     }
 
     Scaffold(
@@ -72,19 +70,11 @@ fun CustomerListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Customers", fontWeight = FontWeight.ExtraBold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.White)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddCustomerClick,
-                containerColor = NeonBlue,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            FloatingActionButton(onClick = onAddCustomerClick, containerColor = NeonBlue, contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
                 Icon(Icons.Default.Add, contentDescription = "Add Customer")
             }
         }
@@ -94,44 +84,22 @@ fun CustomerListScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(GlassBg.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(16.dp)).background(GlassBg.copy(alpha = 0.5f)),
                     placeholder = { Text("Search customers...", color = TextSecondary) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NeonBlue,
-                        unfocusedBorderColor = GlassEdge,
-                        cursorColor = NeonBlue,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = NeonBlue, unfocusedBorderColor = GlassEdge, cursorColor = NeonBlue, focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                 )
-
                 if (filteredCustomers.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (searchQuery.isEmpty()) "No customers yet" else "No matching customers found",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextSecondary
-                        )
+                        Text(text = if (searchQuery.isEmpty()) "No customers yet" else "No matching customers found", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 80.dp)
-                    ) {
+                    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 80.dp)) {
                         items(filteredCustomers, key = { it.customerId }) { customer ->
                             CustomerItem(
                                 customer = customer,
-                                onClick = { 
-                                    if (customer.customerId.isNotEmpty()) {
-                                        onCustomerClick(customer.customerId)
-                                    }
-                                },
+                                onClick = { if (customer.customerId.isNotEmpty()) onCustomerClick(customer.customerId) },
                                 onEditClick = { customerToEdit = customer },
                                 onDeleteClick = { customerToDelete = customer }
                             )
@@ -139,201 +107,67 @@ fun CustomerListScreen(
                     }
                 }
             }
-
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = NeonBlue
-                )
-            }
+            if (isLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NeonBlue)
         }
     }
 
-    // Delete Confirmation Dialog
     customerToDelete?.let { customer ->
         AlertDialog(
             onDismissRequest = { customerToDelete = null },
             title = { Text("Delete Customer") },
             text = { Text("Are you sure you want to delete ${customer.name}?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteCustomer(vendorId, customer.customerId) {
-                            customerToDelete = null
-                        }
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
+                TextButton(onClick = { viewModel.deleteCustomer(vendorId, customer.customerId) { customerToDelete = null } }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                     Text("Delete")
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { customerToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { customerToDelete = null }) { Text("Cancel") } }
         )
     }
 
-    // Edit Customer Dialog
     customerToEdit?.let { customer ->
-        EditCustomerDialog(
-            customer = customer,
-            onDismiss = { customerToEdit = null },
-            onSave = { updatedName, updatedPhone ->
-                val updatedCustomer = customer.copy(name = updatedName, phone = updatedPhone)
-                viewModel.updateCustomer(updatedCustomer) {
-                    customerToEdit = null
-                }
-            }
-        )
+        EditCustomerDialog(customer = customer, onDismiss = { customerToEdit = null }, onSave = { name, phone -> viewModel.updateCustomer(customer.copy(name = name, phone = phone)) { customerToEdit = null } })
     }
 }
 
 @Composable
-fun EditCustomerDialog(
-    customer: Customer,
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
-) {
+fun EditCustomerDialog(customer: Customer, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
     var name by remember { mutableStateOf(customer.name) }
     var phone by remember { mutableStateOf(customer.phone) }
-    var nameError by remember { mutableStateOf(false) }
-    var phoneError by remember { mutableStateOf(false) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Customer") },
         text = {
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { 
-                        name = it
-                        nameError = it.isBlank()
-                    },
-                    label = { Text("Name") },
-                    isError = nameError,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (nameError) {
-                    Text("Name cannot be empty", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                }
-
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { 
-                        phone = it
-                        phoneError = it.isBlank()
-                    },
-                    label = { Text("Phone") },
-                    isError = phoneError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (phoneError) {
-                    Text("Phone cannot be empty", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                }
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (name.isNotBlank() && phone.isNotBlank()) {
-                        onSave(name, phone)
-                    } else {
-                        nameError = name.isBlank()
-                        phoneError = phone.isBlank()
-                    }
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        confirmButton = { Button(onClick = { if (name.isNotBlank() && phone.isNotBlank()) onSave(name, phone) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
 @Composable
-fun CustomerItem(
-    customer: Customer, 
-    onClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(GlassBg.copy(alpha = 0.7f))
-            .border(1.dp, GlassEdge, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp)
-    ) {
+fun CustomerItem(customer: Customer, onClick: () -> Unit, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(20.dp)).background(GlassBg.copy(alpha = 0.7f)).border(1.dp, GlassEdge, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(16.dp)) {
         Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = customer.name.ifEmpty { "Unknown Customer" },
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(text = customer.name.ifEmpty { "Unknown Customer" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                 Row {
-                    IconButton(onClick = onEditClick) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Customer",
-                            tint = NeonBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete Customer",
-                            tint = NeonRed,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    IconButton(onClick = onEditClick) { Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = NeonBlue, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onDeleteClick) { Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed, modifier = Modifier.size(20.dp)) }
                 }
             }
-
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(
-                        text = "Total: ₹ ${"%.2f".format(Locale.ENGLISH, customer.totalAmount)}", 
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                    Text(
-                        text = "Paid: ₹ ${"%.2f".format(Locale.ENGLISH, customer.paidAmount)}", 
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = NeonGreen
-                    )
+                    Text(text = "Total: ₹ ${"%.2f".format(Locale.ENGLISH, customer.totalAmount)}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Text(text = "Paid: ₹ ${"%.2f".format(Locale.ENGLISH, customer.paidAmount)}", style = MaterialTheme.typography.bodyMedium, color = NeonGreen)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(text = "Remaining", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                    Text(
-                        text = "₹ ${"%.2f".format(Locale.ENGLISH, customer.remainingBalance)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (customer.remainingBalance > 0) NeonAmber else NeonGreen,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = "₹ ${"%.2f".format(Locale.ENGLISH, customer.remainingBalance)}", style = MaterialTheme.typography.titleMedium, color = if (customer.remainingBalance > 0) NeonAmber else NeonGreen, fontWeight = FontWeight.Bold)
                 }
             }
         }

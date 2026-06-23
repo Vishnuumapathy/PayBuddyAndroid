@@ -26,7 +26,6 @@ class SaleDetailFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         val saleId = arguments?.getString("saleId") ?: ""
-        
         val db = FirebaseFirestore.getInstance()
         val repository = MainRepository(db)
         val factory = ViewModelFactory(repository)

@@ -31,9 +31,6 @@ class CustomerViewModel(private val repository: MainRepository) : ViewModel() {
     }
 
     fun getCustomers(vendorId: String): Flow<List<Customer>> {
-        viewModelScope.launch {
-            repository.performMigration(vendorId)
-        }
         return repository.getAllCustomers(vendorId)
     }
 
@@ -108,11 +105,7 @@ class CustomerViewModel(private val repository: MainRepository) : ViewModel() {
         try {
             val archived = repository.deleteCustomer(vendorId, customerId)
             onSuccess()
-            _success.value = if (archived) {
-                "Customer archived successfully"
-            } else {
-                "Customer deleted successfully"
-            }
+            _success.value = if (archived) "Customer archived successfully" else "Customer deleted successfully"
         } catch (e: Exception) {
             Log.e("CustomerViewModel", "Error deleting customer", e)
             _error.value = "Failed to delete customer: ${e.message}"
@@ -124,22 +117,16 @@ class CustomerViewModel(private val repository: MainRepository) : ViewModel() {
     fun calculateRiskScore(sales: List<Sale>, installments: List<Installment>): String {
         try {
             if (sales.isEmpty()) return "Low Risk"
-
             val totalFinalAmount = sales.sumOf { it.finalAmount }
             val totalPaidAmount = sales.sumOf { it.amountPaid }
-            
             val paymentCompletionRatio = if (totalFinalAmount > 0) totalPaidAmount / totalFinalAmount else 1.0
-            
-            // Check for any overdue installments
             val latePaymentCount = installments.count { it.status == "OVERDUE" }
-
             return when {
                 latePaymentCount > 2 || paymentCompletionRatio < 0.4 -> "High Risk"
                 latePaymentCount > 0 || paymentCompletionRatio < 0.8 -> "Medium Risk"
                 else -> "Low Risk"
             }
         } catch (e: Exception) {
-            Log.e("CustomerViewModel", "Error calculating risk score", e)
             return "Unknown"
         }
     }

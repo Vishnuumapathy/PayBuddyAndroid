@@ -16,9 +16,6 @@ data class ReminderItem(
     val itemName: String = ""
 )
 
-/**
- * UI State for the Reminder screen.
- */
 data class ReminderUiState(
     val isLoading: Boolean = false,
     val reminders: List<ReminderItem> = emptyList(),
@@ -26,10 +23,6 @@ data class ReminderUiState(
     val isSending: Boolean = false
 )
 
-/**
- * ViewModel for the PayBuddy Reminder System.
- * Manages loading and updating reminder states using the repository.
- */
 class ReminderViewModel(
     private val repository: MainRepository,
     private val sessionManager: SessionManager
@@ -40,29 +33,18 @@ class ReminderViewModel(
 
     private var remindersJob: Job? = null
 
-    /**
-     * Loads due and overdue reminders for the logged-in vendor.
-     * Uses SessionManager to retrieve the vendorId.
-     */
     fun loadReminders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val vendorId = sessionManager.getVendorId()
-            
             if (vendorId.isNullOrBlank()) {
-                _uiState.update { 
-                    it.copy(isLoading = false, errorMessage = "Critical Error: Vendor session not found") 
-                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Critical Error: Vendor session not found") }
                 return@launch
             }
-            
             startObservingReminders(vendorId)
         }
     }
 
-    /**
-     * Internal function to observe reminders from the repository.
-     */
     private fun startObservingReminders(vendorId: String) {
         remindersJob?.cancel()
         remindersJob = viewModelScope.launch {
@@ -73,7 +55,6 @@ class ReminderViewModel(
             ) { installments, sales, customers ->
                 val salesMap = sales.associateBy { it.saleId }
                 val customersMap = customers.associateBy { it.customerId }
-
                 installments.map { installment ->
                     val sale = salesMap[installment.saleId]
                     val customer = customersMap[installment.customerId]
@@ -84,47 +65,27 @@ class ReminderViewModel(
                         itemName = sale?.itemName ?: "Purchase"
                     )
                 }
+            }.catch { e ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Error loading reminders: ${e.message}") }
+            }.collect { list ->
+                _uiState.update { it.copy(isLoading = false, reminders = list, errorMessage = null) }
             }
-                .catch { e ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = "Error loading reminders: ${e.message}"
-                    ) }
-                }
-                .collect { list ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        reminders = list,
-                        errorMessage = null
-                    ) }
-                }
         }
     }
 
-    /**
-     * Marks an installment as having a reminder sent.
-     * UI should call this only after a successful WhatsApp message launch.
-     */
     fun markReminderSent(installmentId: String) {
         if (installmentId.isBlank()) return
-
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true) }
             try {
                 repository.updateInstallmentReminderSent(installmentId)
                 _uiState.update { it.copy(isSending = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(
-                    isSending = false,
-                    errorMessage = "Failed to update reminder status: ${e.message}"
-                ) }
+                _uiState.update { it.copy(isSending = false, errorMessage = "Failed to update reminder status: ${e.message}") }
             }
         }
     }
 
-    /**
-     * Clears error messages for UI handling.
-     */
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }

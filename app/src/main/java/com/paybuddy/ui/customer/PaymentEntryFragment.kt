@@ -50,7 +50,7 @@ class PaymentEntryFragment : Fragment() {
                         customerId = customerId,
                         saleId = saleId,
                         vendorId = vendorId,
-                        installments = installments.filter { it.status != "PAID" },
+                        installments = installments.filter { it.status != "PAID" && it.remainingAmount > 0 },
                         onPaymentRecorded = { findNavController().popBackStack() },
                         onBack = { findNavController().popBackStack() }
                     )

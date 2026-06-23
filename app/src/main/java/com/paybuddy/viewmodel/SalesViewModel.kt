@@ -56,40 +56,24 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
 
     fun loadSales(vendorId: String) {
         val trimmedId = vendorId.trim()
-        if (currentVendorId == trimmedId && salesJob?.isActive == true) {
-            Log.d("SalesViewModel", "loadSales: Already observing for vendorId: '$trimmedId'")
-            return
-        }
-        
+        if (currentVendorId == trimmedId && salesJob?.isActive == true) return
         currentVendorId = trimmedId
         salesJob?.cancel()
-
         if (trimmedId.isBlank()) {
-            Log.w("SalesViewModel", "loadSales: vendorId is blank")
             _salesUiState.value = SalesUiState.Empty
             return
         }
-
         salesJob = viewModelScope.launch {
-            Log.d("SalesViewModel", "loadSales: Starting fetch for vendorId: '$trimmedId'")
-            
-            // Only set loading if we don't have data or if it's a new vendor
             if (_salesUiState.value !is SalesUiState.Success) {
                 _salesUiState.value = SalesUiState.Loading
             }
-
             repository.getSalesByVendor(trimmedId)
                 .catch { e ->
-                    Log.e("SalesViewModel", "loadSales: Error in flow", e)
                     _salesUiState.value = SalesUiState.Error(e.message ?: "Failed to load sales")
                 }
                 .collect { list ->
-                    Log.d("SalesViewModel", "loadSales: Collected ${list.size} sales for '$trimmedId'")
-                    if (list.isEmpty()) {
-                        _salesUiState.value = SalesUiState.Empty
-                    } else {
-                        _salesUiState.value = SalesUiState.Success(list)
-                    }
+                    if (list.isEmpty()) _salesUiState.value = SalesUiState.Empty
+                    else _salesUiState.value = SalesUiState.Success(list)
                 }
         }
     }
@@ -105,7 +89,6 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
             _success.value = "Sale restored successfully"
             onSuccess()
         } catch (e: Exception) {
-            Log.e("SalesViewModel", "Error restoring sale", e)
             _error.value = "Failed to restore sale: ${e.message}"
         } finally {
             _isProcessing.value = false
@@ -115,71 +98,30 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
     fun getCustomers(vendorId: String): Flow<List<Customer>> = repository.getAllCustomers(vendorId)
 
     fun createSale(
-        itemName: String,
-        quantity: Int,
-        unitPrice: Double,
-        totalAmount: Double,
-        interestRate: Double,
-        installmentCount: Int,
-        paymentType: String,
-        amountPaid: Double,
-        customerId: String,
-        customerName: String,
-        vendorId: String,
-        installments: List<Installment>,
-        onSuccess: () -> Unit
+        itemName: String, quantity: Int, unitPrice: Double, totalAmount: Double, interestRate: Double,
+        installmentCount: Int, paymentType: String, amountPaid: Double, customerId: String,
+        customerName: String, vendorId: String, installments: List<Installment>, onSuccess: () -> Unit
     ) = viewModelScope.launch {
         if (vendorId.isBlank()) {
             _error.value = "Vendor session expired. Please login again."
             return@launch
         }
-        
         try {
             _isProcessing.value = true
             val saleId = "SALE_${System.currentTimeMillis()}"
-            
-            // Implementation Rules computation:
-            // IF FULL payment: finalAmount = totalAmount, amountPaid = finalAmount, remaining = 0, status = COMPLETED
-            // IF PARTIAL payment: finalAmount = totalAmount + (totalAmount * interestRate / 100)
-            // remaining = finalAmount - amountPaid
-            // IF remaining <= 0 -> COMPLETED, ELSE -> PENDING
-            
-            val finalAmount = if (paymentType == "Full Payment") {
-                totalAmount
-            } else {
-                totalAmount + (totalAmount * interestRate / 100)
-            }
-            
-            // Safety Guard: Never persist overpayment, negative values, or invalid installment count
+            val finalAmount = if (paymentType == "Full Payment") totalAmount else totalAmount + (totalAmount * interestRate / 100)
             val validatedAmountPaid = amountPaid.coerceIn(0.0, finalAmount)
-            
-            // Data Consistency: Ensure installmentCount matches the generated installments list
-            val validatedInstallmentCount = if (paymentType == "Full Payment") 1 else installments.size.coerceAtLeast(1)
-            
-            // Ensure status is consistent with UI logic
             val status = if (finalAmount - validatedAmountPaid <= 0.01) "COMPLETED" else "PENDING"
-
             val sale = Sale(
-                saleId = saleId,
-                itemName = itemName,
-                quantity = quantity,
-                unitPrice = unitPrice,
-                totalAmount = totalAmount,
-                interestRate = interestRate,
-                installmentCount = validatedInstallmentCount,
-                paymentType = paymentType,
-                amountPaid = validatedAmountPaid,
-                status = status,
-                customerId = customerId,
-                customerName = customerName,
-                vendorId = vendorId
+                saleId = saleId, itemName = itemName, quantity = quantity, unitPrice = unitPrice,
+                totalAmount = totalAmount, interestRate = interestRate, installmentCount = installmentCount,
+                paymentType = paymentType, amountPaid = validatedAmountPaid, status = status,
+                customerId = customerId, customerName = customerName, vendorId = vendorId
             )
-            
             val updatedInstallments = installments.map { it.copy(saleId = saleId) }
             repository.createSale(sale, updatedInstallments)
             onSuccess()
         } catch (e: Exception) {
-            Log.e("SalesViewModel", "Error creating sale", e)
             _error.value = "Failed to create sale: ${e.message}"
         } finally {
             _isProcessing.value = false
@@ -192,7 +134,6 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
             repository.updateSale(oldSale, newSale)
             onSuccess()
         } catch (e: Exception) {
-            Log.e("SalesViewModel", "Error updating sale", e)
             _error.value = "Failed to update sale: ${e.message}"
         } finally {
             _isProcessing.value = false
@@ -204,13 +145,8 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
             _isProcessing.value = true
             val archived = repository.deleteSale(sale)
             onSuccess()
-            _success.value = if (archived) {
-                "Sale archived successfully"
-            } else {
-                "Sale deleted successfully"
-            }
+            _success.value = if (archived) "Sale archived successfully" else "Sale deleted successfully"
         } catch (e: Exception) {
-            Log.e("SalesViewModel", "Error deleting sale", e)
             _error.value = "Failed to delete sale: ${e.message}"
         } finally {
             _isProcessing.value = false
@@ -227,7 +163,6 @@ class SalesViewModel(private val repository: MainRepository) : ViewModel() {
             repository.recordPayment(payment)
             onSuccess()
         } catch (e: Exception) {
-            Log.e("SalesViewModel", "Error recording payment", e)
             _error.value = "Failed to record payment: ${e.message}"
         } finally {
             _isProcessing.value = false

@@ -20,14 +20,9 @@ import java.util.*
 
 fun safeFormatAmount(value: Double?): String {
     return try {
-        if (value == null || value.isNaN() || value.isInfinite()) {
-            "₹ 0"
-        } else {
-            "₹ %.2f".format(Locale.ENGLISH, value)
-        }
-    } catch (e: Exception) {
-        "₹ 0"
-    }
+        if (value == null || value.isNaN() || value.isInfinite()) "₹ 0"
+        else "₹ %.2f".format(Locale.ENGLISH, value)
+    } catch (e: Exception) { "₹ 0" }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,30 +40,15 @@ fun CustomerSalesListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("${customer?.name ?: "Customer"}'s Sales") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }
             )
         }
     ) { padding ->
         if (sales.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No sales found for this customer.")
-            }
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No sales found for this customer.") }
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
-                items(sales) { sale ->
-                    CustomerSaleCard(sale)
-                }
+            LazyColumn(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
+                items(sales) { sale -> CustomerSaleCard(sale) }
             }
         }
     }
@@ -77,52 +57,21 @@ fun CustomerSalesListScreen(
 @Composable
 fun CustomerSaleCard(sale: Sale) {
     val sdf = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
-    
-    // Log invalid data for debugging
-    if (sale.finalAmount < 0 || sale.amountPaid < 0 || sale.finalAmount.isNaN()) {
-        Log.w("SALE_DATA", "Invalid sale data: $sale")
-    }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = sale.itemName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                val statusColor = if (sale.status == "COMPLETED") Color(0xFF388E3C) else Color(0xFFF57C00)
-                Surface(
-                    color = statusColor.copy(alpha = 0.1f),
-                    shape = MaterialTheme.shapes.extraSmall
-                ) {
-                    Text(
-                        text = sale.status,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.Bold
-                    )
+                Text(text = sale.itemName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                val color = if (sale.status == "COMPLETED") Color(0xFF388E3C) else Color(0xFFF57C00)
+                Surface(color = color.copy(alpha = 0.1f), shape = MaterialTheme.shapes.extraSmall) {
+                    Text(text = sale.status, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
                 }
             }
-            
             Spacer(modifier = Modifier.height(8.dp))
-            
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = sdf.format(Date(sale.createdAt)), style = MaterialTheme.typography.bodySmall)
-                Text(
-                    text = "Interest: ${sale.interestRate}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(text = "Interest: ${sale.interestRate}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
-            
             DetailRowSmall("Total Amount", safeFormatAmount(sale.finalAmount))
             DetailRowSmall("Amount Paid", safeFormatAmount(sale.amountPaid))
             DetailRowSmall("Remaining", safeFormatAmount(sale.remainingAmount))
@@ -133,10 +82,7 @@ fun CustomerSaleCard(sale: Sale) {
 
 @Composable
 fun DetailRowSmall(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }

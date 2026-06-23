@@ -42,7 +42,26 @@ class VendorViewModel(
         val vendorId = sessionManager.getVendorId() ?: return@launch
         try {
             val vendor = repository.getVendor(vendorId)
-            _currentVendor.value = vendor
+            if (vendor != null) {
+                _currentVendor.value = vendor
+            } else {
+                // Collection was likely deleted. Try to recover from local session data.
+                val name = sessionManager.getVendorName() ?: ""
+                val shopName = sessionManager.getShopName() ?: ""
+                val upiId = sessionManager.getVendorUpi() ?: ""
+                
+                if (name.isNotEmpty()) {
+                    val recoveredVendor = Vendor(
+                        vendorId = vendorId,
+                        name = name,
+                        shopName = shopName,
+                        upiId = upiId,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    repository.saveVendor(recoveredVendor)
+                    _currentVendor.value = recoveredVendor
+                }
+            }
         } catch (e: Exception) {
             // Log error
         }

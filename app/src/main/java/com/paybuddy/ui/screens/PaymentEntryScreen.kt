@@ -2,69 +2,64 @@ package com.paybuddy.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.paybuddy.data.model.Installment
-import com.paybuddy.data.model.Payment
+import com.paybuddy.data.model.*
 import com.paybuddy.ui.theme.*
 import com.paybuddy.viewmodel.SalesViewModel
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentEntryScreen(
-    viewModel: SalesViewModel,
     customerId: String,
-    saleId: String? = null,
+    saleId: String?,
     vendorId: String,
+    viewModel: SalesViewModel,
     installments: List<Installment>,
     onPaymentRecorded: () -> Unit,
     onBack: () -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
-    var selectedPaymentMode by remember { mutableStateOf("CASH") }
+    var paymentMode by remember { mutableStateOf("CASH") }
     var selectedInstallment by remember { mutableStateOf<Installment?>(null) }
-    var expandedMode by remember { mutableStateOf(false) }
-    var expandedInst by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            expandedMode = false
-            expandedInst = false
-        }
-    }
-
-    val paymentModes = listOf("CASH", "UPI", "BANK")
+    
+    var showPaymentModeMenu by remember { mutableStateOf(false) }
+    var showInstallmentMenu by remember { mutableStateOf(false) }
+    
     val context = LocalContext.current
-    val view = LocalView.current
     val error by viewModel.error.collectAsState()
-
+    
     LaunchedEffect(error) {
         error?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            isSaving = false
             viewModel.clearError()
         }
     }
-
+    
     val saleContext by if (!saleId.isNullOrEmpty()) {
         viewModel.getSaleById(saleId).collectAsState(initial = null)
     } else {
@@ -78,269 +73,233 @@ fun PaymentEntryScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                ),
-                title = { Text("Record Payment", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack, enabled = !isSaving) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                    }
-                }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF111827), Color(0xFF0F172A))
+                )
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Amount Field with Glass Style
-            Box(
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                    Text(
+                        "Record Payment",
+                        style = TextStyle(color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        ) { padding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(GlassBg.copy(alpha = 0.7f))
-                    .border(1.dp, GlassEdge, RoundedCornerShape(24.dp))
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(20.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Amount to Pay",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextField(
-                        value = amount,
-                        onValueChange = { amount = it },
+                // Amount Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f)),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(Color(0xFF334155), Color.Transparent)))
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text("Amount to Pay", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("₹", color = Color(0xFF4ADE80), fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            BasicTextField(
+                                value = amount,
+                                onValueChange = { amount = it },
+                                textStyle = TextStyle(
+                                    color = Color(0xFF4ADE80),
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                cursorBrush = SolidColor(Color(0xFF4ADE80)),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Paying for Card
+                if (saleContext != null) {
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = NeonGreen
-                        ),
-                        placeholder = { 
-                            Text(
-                                "0.00", 
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = NeonGreen.copy(alpha = 0.3f)
-                            ) 
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        enabled = !isSaving,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            disabledContainerColor = Color.Transparent,
-                            cursorColor = NeonGreen,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        prefix = { 
-                            Text(
-                                "₹ ", 
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = NeonGreen
-                            ) 
-                        }
-                    )
-                }
-            }
-
-            if (saleContext != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(NeonBlue.copy(alpha = 0.1f))
-                        .border(0.5.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                        .padding(16.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "Paying for: ${saleContext!!.itemName}",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Total Remaining: ₹ ${"%.0f".format(Locale.ENGLISH, saleContext!!.remainingAmount)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
-
-            // Payment Mode Dropdown with Glass Style
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(GlassBg.copy(alpha = 0.4f))
-                    .border(0.5.dp, GlassEdge.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-            ) {
-                ExposedDropdownMenuBox(
-                    expanded = expandedMode,
-                    onExpandedChange = { if (!isSaving) expandedMode = !expandedMode },
-                ) {
-                    TextField(
-                        value = selectedPaymentMode,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Payment Mode", color = TextSecondary) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMode) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        enabled = !isSaving,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedMode,
-                        onDismissRequest = { expandedMode = false },
-                        modifier = Modifier.background(BackgroundDark)
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.4f)),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(Color(0xFF334155), Color.Transparent)))
                     ) {
-                        paymentModes.forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode, color = Color.White) },
-                                onClick = {
-                                    selectedPaymentMode = mode
-                                    expandedMode = false
-                                }
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Paying for: ${saleContext!!.itemName}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Total Remaining: ₹${saleContext!!.remainingAmount}",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp
                             )
                         }
                     }
                 }
-            }
 
-            // Optional Installment Link with Glass Style
-            if (installments.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(GlassBg.copy(alpha = 0.4f))
-                        .border(0.5.dp, GlassEdge.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                ) {
-                    ExposedDropdownMenuBox(
-                        expanded = expandedInst,
-                        onExpandedChange = { if (!isSaving) expandedInst = !expandedInst },
-                    ) {
-                        TextField(
-                            value = selectedInstallment?.let { "Due: ₹${"%.0f".format(Locale.ENGLISH, it.amount)}" } ?: "Select Installment (Optional)",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Link to Installment", color = TextSecondary) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedInst) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            enabled = !isSaving,
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedInst,
-                            onDismissRequest = { expandedInst = false },
-                            modifier = Modifier.background(BackgroundDark)
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Payment Mode Dropdown
+                Column {
+                    Text("Payment Mode", color = Color(0xFF94A3B8), fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                    Box {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showPaymentModeMenu = true },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.4f)),
+                            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(Color(0xFF334155), Color.Transparent)))
                         ) {
-                            installments.forEach { inst ->
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(paymentMode, color = Color.White, fontSize = 16.sp)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showPaymentModeMenu,
+                            onDismissRequest = { showPaymentModeMenu = false },
+                            modifier = Modifier.background(Color(0xFF1E293B)).fillMaxWidth(0.85f)
+                        ) {
+                            listOf("CASH", "UPI", "CARD").forEach { mode ->
                                 DropdownMenuItem(
-                                    text = { Text("Due: ₹${"%.0f".format(Locale.ENGLISH, inst.amount)} (Pending: ₹${"%.0f".format(Locale.ENGLISH, inst.amount - inst.amountPaid)})", color = Color.White) },
+                                    text = { Text(mode, color = Color.White) },
                                     onClick = {
-                                        selectedInstallment = inst
-                                        val pending = inst.amount - inst.amountPaid
-                                        amount = if (pending % 1 == 0.0) "%.0f".format(Locale.ENGLISH, pending) else "%.2f".format(Locale.ENGLISH, pending)
-                                        expandedInst = false
+                                        paymentMode = mode
+                                        showPaymentModeMenu = false
                                     }
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(20.dp))
 
-            Button(
-                onClick = {
-                    val amountDouble = amount.toDoubleOrNull()
-                    if (amountDouble == null || amountDouble <= 0) {
-                        Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
-                        return@Button
+                // Installment Link Dropdown
+                Column {
+                    Text("Link to Installment", color = Color(0xFF94A3B8), fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                    Box {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showInstallmentMenu = true },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.4f)),
+                            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(Color(0xFF334155), Color.Transparent)))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (selectedInstallment == null) "Select Installment (Optional)" 
+                                           else "Due: ${SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date(selectedInstallment!!.dueDate))} - ₹${selectedInstallment!!.remainingAmount}",
+                                    color = if (selectedInstallment == null) Color(0xFF94A3B8) else Color.White,
+                                    fontSize = 16.sp
+                                )
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showInstallmentMenu,
+                            onDismissRequest = { showInstallmentMenu = false },
+                            modifier = Modifier.background(Color(0xFF1E293B)).fillMaxWidth(0.85f)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("None", color = Color.White) },
+                                onClick = {
+                                    selectedInstallment = null
+                                    showInstallmentMenu = false
+                                }
+                            )
+                            installments.forEach { inst ->
+                                val dateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(inst.dueDate))
+                                DropdownMenuItem(
+                                    text = { Text("Due: $dateStr - ₹${inst.remainingAmount}", color = Color.White) },
+                                    onClick = {
+                                        selectedInstallment = inst
+                                        amount = inst.remainingAmount.toString()
+                                        showInstallmentMenu = false
+                                    }
+                                )
+                            }
+                        }
                     }
-                    if (vendorId.isEmpty()) {
-                        Toast.makeText(context, "Vendor ID missing", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
+                }
 
-                    isSaving = true
-                    expandedMode = false
-                    expandedInst = false
+                Spacer(modifier = Modifier.height(40.dp))
 
-                    val payment = Payment(
-                        paymentId = UUID.randomUUID().toString(),
-                        saleId = saleId ?: selectedInstallment?.saleId ?: "",
-                        installmentId = selectedInstallment?.installmentId,
-                        customerId = customerId,
-                        vendorId = vendorId,
-                        amount = amountDouble,
-                        paymentMode = selectedPaymentMode,
-                        createdAt = System.currentTimeMillis()
-                    )
-                    viewModel.recordPayment(payment) {
-                        isSaving = false
-                        view.post { onPaymentRecorded() }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                contentPadding = PaddingValues(0.dp),
-                enabled = amount.isNotBlank() && !isSaving
-            ) {
-                Box(
+                Button(
+                    onClick = {
+                        val amt = amount.toDoubleOrNull() ?: 0.0
+                        if (amt <= 0) {
+                            Toast.makeText(context, "Invalid amount", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        isSaving = true
+                        val payment = Payment(
+                            paymentId = "PAY_${System.currentTimeMillis()}",
+                            saleId = saleId ?: "",
+                            installmentId = selectedInstallment?.installmentId,
+                            customerId = customerId,
+                            vendorId = vendorId,
+                            amount = amt,
+                            paymentMode = paymentMode,
+                            createdAt = System.currentTimeMillis()
+                        )
+                        viewModel.recordPayment(payment) {
+                            isSaving = false
+                            onPaymentRecorded()
+                        }
+                    },
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.horizontalGradient(listOf(NeonGreen, Color(0xFF059669)))
-                        ),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4ADE80)),
+                    enabled = !isSaving && amount.isNotEmpty()
                 ) {
                     if (isSaving) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
                     } else {
-                        Text("Confirm Payment", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Confirm Payment", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }

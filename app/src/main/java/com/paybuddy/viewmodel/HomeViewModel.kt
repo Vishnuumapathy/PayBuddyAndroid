@@ -44,108 +44,54 @@ class HomeViewModel(private val repository: MainRepository) : ViewModel() {
     fun loadDashboardData(vendorId: String) {
         val trimmedVendorId = vendorId.trim()
         if (trimmedVendorId.isEmpty()) {
-            Log.e(TAG, "loadDashboardData: Critical failure - vendorId is empty")
             _errorMessage.value = "Critical Error: Vendor ID is missing"
             return
         }
-        
-        Log.d(TAG, "loadDashboardData: Starting for vendor '$trimmedVendorId'")
         dashboardJob?.cancel()
         dashboardJob = viewModelScope.launch {
             _isLoading.value = true
-            // Clear previous error when starting a fresh load
             _errorMessage.value = null
             
             val summaryLoaded = MutableStateFlow(false)
             val activityLoaded = MutableStateFlow(false)
 
-            // Monitor loading state
             launch {
-                combine(summaryLoaded, activityLoaded) { s, a ->
-                    s && a
-                }.collect { allLoaded ->
-                    if (allLoaded) {
-                        Log.d(TAG, "loadDashboardData: All flows initialized (Summary=$summaryLoaded, Activity=$activityLoaded)")
-                        _isLoading.value = false
-                    }
-                }
+                combine(summaryLoaded, activityLoaded) { s, a -> s && a }.collect { allLoaded -> if (allLoaded) _isLoading.value = false }
             }
 
-            // 1. Collect Installments and Sales for Summary
             launch {
-                val calendar = Calendar.getInstance()
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val today = calendar.timeInMillis
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                val today = cal.timeInMillis
                 val endOfToday = today + 86400000L
 
-                Log.d(TAG, "SummaryFlow: Starting for vendor $trimmedVendorId")
-                combine(
-                    repository.getAllInstallments(trimmedVendorId),
-                    repository.getSalesByVendor(trimmedVendorId)
-                ) { installments, sales ->
-                    Log.d(TAG, "SummaryFlow: Received ${installments.size} installments and ${sales.size} sales")
-                    
+                combine(repository.getAllInstallments(trimmedVendorId), repository.getSalesByVendor(trimmedVendorId)) { inst, sales ->
                     val activeSaleIds = sales.map { it.saleId }.toSet()
-                    val pendingSales = sales.filter { it.status != "COMPLETED" && it.remainingAmount > 0.01 }
-                    val totalOut = pendingSales.sumOf { it.remainingAmount }
-                    
-                    val completedSaleIds = sales.filter { it.status == "COMPLETED" || it.remainingAmount <= 0.01 }
-                        .map { it.saleId }.toSet()
-                    
-                    val filteredInstallments = installments.filter { 
-                        it.saleId in activeSaleIds &&
-                        it.saleId !in completedSaleIds && 
-                        it.status != "PAID" && 
-                        it.remainingAmount > 0.01 
-                    }
-                    
-                    Triple(totalOut, filteredInstallments, sales)
-                }
-                .catch { e ->
-                    Log.e(TAG, "SummaryFlow: Error in installments/sales flow for vendor $trimmedVendorId", e)
+                    val totalOut = sales.filter { it.status != "COMPLETED" && it.remainingAmount > 0.01 }.sumOf { it.remainingAmount }
+                    val completedSaleIds = sales.filter { it.status == "COMPLETED" || it.remainingAmount <= 0.01 }.map { it.saleId }.toSet()
+                    val filteredInst = inst.filter { it.saleId in activeSaleIds && it.saleId !in completedSaleIds && it.status != "PAID" && it.remainingAmount > 0.01 }
+                    Triple(totalOut, filteredInst, sales)
+                }.catch { e ->
                     _errorMessage.value = "Error loading summaries: ${e.message}"
                     summaryLoaded.value = true
-                }
-                .collect { (totalOut, filteredInstallments, _) ->
+                }.collect { (totalOut, filteredInst, _) ->
                     _totalOutstanding.value = totalOut
-                    _allInstallments.value = filteredInstallments
-                    
-                    _todayDue.value = filteredInstallments.filter { it.dueDate in today until endOfToday }.sumOf { it.remainingAmount }
-                    _overdue.value = filteredInstallments.filter { it.status == "OVERDUE" }.sumOf { it.remainingAmount }
-                    _upcoming.value = filteredInstallments.filter { it.dueDate >= endOfToday && it.status != "OVERDUE" }.sumOf { it.remainingAmount }
-                    
-                    // If summary succeeds, clear any previous summary-specific error
-                    if (_errorMessage.value?.startsWith("Error loading summaries") == true) {
-                        _errorMessage.value = null
-                    }
-                    
-                    Log.d(TAG, "SummaryFlow: Updated - TotalOut=$totalOut, Today=${_todayDue.value}, Overdue=${_overdue.value}, Upcoming=${_upcoming.value}")
+                    _allInstallments.value = filteredInst
+                    _todayDue.value = filteredInst.filter { it.dueDate in today until endOfToday }.sumOf { it.remainingAmount }
+                    _overdue.value = filteredInst.filter { it.status == "OVERDUE" }.sumOf { it.remainingAmount }
+                    _upcoming.value = filteredInst.filter { it.dueDate >= endOfToday && it.status != "OVERDUE" }.sumOf { it.remainingAmount }
                     summaryLoaded.value = true
                 }
             }
 
-            // 2. Collect Recent Sales
             launch {
-                Log.d(TAG, "SalesFlow: Starting query for vendor $trimmedVendorId")
-                repository.getRecentSales(trimmedVendorId)
-                    .onStart { Log.d(TAG, "SalesFlow: Recent sales query started") }
-                    .catch { e ->
-                        Log.e(TAG, "SalesFlow: Query failure for vendor $trimmedVendorId", e)
-                    }
-                    .collect { sales ->
-                        Log.d(TAG, "SalesFlow: Updated. Received ${sales.size} entries")
-                        _recentActivity.value = sales
-                        activityLoaded.value = true
-                    }
+                repository.getRecentSales(trimmedVendorId).catch { e -> }.collect { sales ->
+                    _recentActivity.value = sales
+                    activityLoaded.value = true
+                }
             }
         }
     }
     
-    fun clearError() {
-        Log.d(TAG, "clearError: Error banner manually dismissed")
-        _errorMessage.value = null
-    }
+    fun clearError() { _errorMessage.value = null }
 }
