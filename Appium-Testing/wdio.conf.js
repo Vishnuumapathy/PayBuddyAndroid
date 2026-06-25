@@ -87,6 +87,17 @@ exports.config = {
                 console.warn('Could not delete old report: ' + e.message);
             }
         }
+        // Clean up temp results directory
+        const tempDir = path.join(reportDir, 'temp_results');
+        if (fs.existsSync(tempDir)) {
+            try {
+                const files = fs.readdirSync(tempDir);
+                for (const file of files) {
+                    fs.unlinkSync(path.join(tempDir, file));
+                }
+                fs.rmdirSync(tempDir);
+            } catch (e) {}
+        }
     },
 
     before: async function () {
@@ -185,7 +196,7 @@ exports.config = {
     },
 
     after: async function () {
-        await ExcelReporter.saveReport();
+        // Excel report compilation is handled in onComplete to ensure thread safety
     },
 
     onComplete: async function() {

@@ -57,6 +57,8 @@ jobs:
 
       - name: Install Appium & Test Dependencies
         shell: powershell
+        env:
+          APPIUM_SKIP_CHROMEDRIVER_INSTALL: 'true'
         run: |
           cd Appium-Testing
           npm ci

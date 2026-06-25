@@ -99,13 +99,15 @@ class ExcelReporter {
         });
     }
 
-    static async addResult(data) {
-        if (!this.workbook) await this.initReport();
-
+    static addResultToWorkbook(data) {
         const singleSheet = this.getSheetName();
         const categoryName = singleSheet || data.category || 'Functional';
         let worksheet = this.workbook.getWorksheet(categoryName);
-        if (!worksheet) worksheet = this.workbook.addWorksheet(categoryName);
+        if (!worksheet) {
+            worksheet = this.workbook.addWorksheet(categoryName);
+            worksheet.columns = this.getColumnDefinitions();
+            this.formatHeader(worksheet);
+        }
 
         let existingRow = null;
         worksheet.eachRow((r) => { if (r.getCell(1).value === data.id) existingRow = r; });
@@ -138,10 +140,22 @@ class ExcelReporter {
             statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
             statusCell.font = { color: { argb: 'FF9C0006' }, bold: true };
         }
+    }
 
+    static async addResult(data) {
+        const tempDir = path.join(__dirname, '../excel-reports/temp_results');
+        if (!fs.existsSync(tempDir)) {
+            try {
+                fs.mkdirSync(tempDir, { recursive: true });
+            } catch (e) {}
+        }
+        const uniqueName = `result_${data.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.json`;
+        const tempFilePath = path.join(tempDir, uniqueName);
         try {
-            await this.workbook.xlsx.writeFile(this.filePath);
-        } catch (e) {}
+            fs.writeFileSync(tempFilePath, JSON.stringify(data, null, 2), 'utf8');
+        } catch (e) {
+            console.error('Failed to write temp result file: ' + e.message);
+        }
     }
 
     static generateDashboard() {
@@ -396,14 +410,49 @@ class ExcelReporter {
     }
 
     static async saveReport() {
-        if (this.workbook) {
+        if (!this.workbook) return;
+
+        const tempDir = path.join(__dirname, '../excel-reports/temp_results');
+        if (fs.existsSync(tempDir)) {
             try {
-                this.generateDashboard();
-                await this.workbook.xlsx.writeFile(this.filePath);
-                if (process.env.GITHUB_STEP_SUMMARY) {
-                    this.publishGithubSummary();
+                const files = fs.readdirSync(tempDir);
+                for (const file of files) {
+                    if (file.endsWith('.json')) {
+                        try {
+                            const content = fs.readFileSync(path.join(tempDir, file), 'utf8');
+                            const data = JSON.parse(content);
+                            this.addResultToWorkbook(data);
+                        } catch (e) {
+                            console.error(`Error reading temp file ${file}:`, e);
+                        }
+                    }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('Error listing temp files:', e);
+            }
+        }
+
+        try {
+            this.generateDashboard();
+            await this.workbook.xlsx.writeFile(this.filePath);
+            if (process.env.GITHUB_STEP_SUMMARY) {
+                this.publishGithubSummary();
+            }
+
+            // Clean up temp files
+            if (fs.existsSync(tempDir)) {
+                const files = fs.readdirSync(tempDir);
+                for (const file of files) {
+                    try {
+                        fs.unlinkSync(path.join(tempDir, file));
+                    } catch (e) {}
+                }
+                try {
+                    fs.rmdirSync(tempDir);
+                } catch (e) {}
+            }
+        } catch (e) {
+            console.error('Error saving Excel report:', e);
         }
     }
 }
